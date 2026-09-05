@@ -18,7 +18,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/:path*",
+        // User-supplied media is served by /api/v1/files/* which sets its own,
+        // much stricter policy ("default-src 'none'; sandbox"). Applying the
+        // app policy here would weaken it, so that path is excluded.
+        source: "/:path((?!api/v1/files/).*)",
         headers: [
           { key: "x-content-type-options", value: "nosniff" },
           { key: "x-frame-options", value: "SAMEORIGIN" },
