@@ -225,3 +225,12 @@ export async function probeAudio(filePath: string): Promise<{
     codec: audio.codec_name ?? null,
   };
 }
+
+/** Executes ffprobe purely to confirm the binary really runs on this host. */
+export async function ffprobeVersion(): Promise<string | null> {
+  const bin = findFfprobe();
+  if (!bin) return null;
+  const res = await runProcess(bin, ["-hide_banner", "-version"], { timeoutMs: 15_000 });
+  if (res.code !== 0) return null;
+  return res.stdout.split("\n")[0]?.trim() || null;
+}

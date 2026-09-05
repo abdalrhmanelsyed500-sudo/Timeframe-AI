@@ -20,7 +20,7 @@ import { markTimelinesStale } from "./stale";
 import { trackStorage } from "./storage-usage";
 import { latestVisualBible } from "./visual-bible";
 import { allShots, latestStoryPlan, type ShotRecord } from "./story";
-import type { ProjectRecord } from "./projects";
+import { setProjectStatus, type ProjectRecord } from "./projects";
 
 /** Maximum automatic regeneration attempts before a human is asked to look. */
 export const MAX_AUTO_ATTEMPTS = 2;
@@ -463,6 +463,7 @@ export async function generateAssetForShot(params: {
         db.updateTable("assets").set({ status: "READY", selected_version_id: versionId, attempts }).where("id", "=", assetId).execute(),
       );
       await markTimelinesStale(project.id);
+      await reconcileVisualsStatus(project);
       return lastResult;
     }
     // FAIL / NEEDS_REVIEW → try once more, up to the cap.
@@ -482,7 +483,26 @@ export async function generateAssetForShot(params: {
       .execute(),
   );
   await markTimelinesStale(project.id);
+  await reconcileVisualsStatus(project);
   return { ...lastResult, gate: "NEEDS_REVIEW" };
+}
+
+/**
+ * Keeps the project state machine honest when assets are generated one at a
+ * time (single-shot regeneration, seeding) rather than through a batch job.
+ * Only advances once EVERY shot has a selected image; a partially generated
+ * project stays in VISUALS_GENERATING.
+ */
+export async function reconcileVisualsStatus(project: ProjectRecord): Promise<void> {
+  const remaining = await pendingShots(project.id);
+  const target = remaining.length === 0 ? "VISUALS_READY" : "VISUALS_GENERATING";
+  const current = (
+    await dbGuard(() => db.selectFrom("projects").select("status").where("id", "=", project.id).executeTakeFirst())
+  )?.status as ProjectRecord["status"] | undefined;
+  if (!current || current === target) return;
+  // Never drag a project backwards out of a later stage.
+  if (["TIMELINE_READY", "QUALITY_REVIEW", "READY_TO_RENDER", "RENDERING", "COMPLETED"].includes(current)) return;
+  await setProjectStatus(project.id, current, target).catch(() => {});
 }
 
 async function runVisionQc(params: {
