@@ -74,9 +74,14 @@ export async function startSession(userId: string): Promise<void> {
 }
 
 export async function endSession(): Promise<void> {
+  const env = loadEnv();
   const jar = await cookies();
-  jar.delete(SESSION_COOKIE);
-  jar.delete(CSRF_COOKIE);
+  const secure = env.NODE_ENV === "production";
+  // The expiring cookie must carry the SAME attributes (httpOnly, sameSite,
+  // secure, path) as the one it replaces, otherwise user agents treat it as a
+  // different cookie and the session survives logout.
+  jar.set(SESSION_COOKIE, "", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 0 });
+  jar.set(CSRF_COOKIE, "", { httpOnly: false, sameSite: "lax", secure, path: "/", maxAge: 0 });
 }
 
 /** Returns the signed-in user or null. Never throws for anonymous visitors. */

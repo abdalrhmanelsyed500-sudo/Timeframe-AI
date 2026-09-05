@@ -27,13 +27,17 @@ export interface HandlerOptions<TBody> {
   rateLimit?: LimitName;
 }
 
-type RouteParams = { params?: Promise<Record<string, string>> };
+/**
+ * Next.js 15 always passes a context object whose `params` is a promise.
+ * Routes with no dynamic segments receive an empty record.
+ */
+type RouteContext = { params: Promise<Record<string, string>> };
 
 export function apiHandler<TBody = unknown>(
   options: HandlerOptions<TBody>,
   fn: (ctx: ApiContext<TBody>) => Promise<unknown>,
 ) {
-  return async (request: Request, route: RouteParams = {}): Promise<Response> => {
+  return async (request: Request, route: RouteContext): Promise<Response> => {
     const requestId = newRequestId();
     let user: SessionUser | null = null;
     try {
@@ -59,7 +63,7 @@ export function apiHandler<TBody = unknown>(
         body = parsed.data;
       }
 
-      const params = route.params ? await route.params : {};
+      const params = route?.params ? await route.params : {};
       const url = new URL(request.url);
 
       const result = await fn({
