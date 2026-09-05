@@ -1,5 +1,5 @@
 import { iso } from "@/lib/core/dates";
-import { db, dbGuard } from "@/lib/db";
+import { db, dbGuard, jsonb } from "@/lib/db";
 import { newId } from "@/lib/core/ids";
 import { contentHash } from "@/lib/core/hash";
 import { AppError } from "@/lib/errors";
@@ -191,8 +191,8 @@ export async function saveVersion(params: {
         status: params.status,
         stale: false,
         duration_ms: params.doc.durationMs,
-        clips: params.doc.clips as unknown as unknown[],
-        overlays: params.doc.overlays as unknown as unknown[],
+        clips: jsonb(params.doc.clips),
+        overlays: jsonb(params.doc.overlays),
         content_hash: contentHash(params.doc),
         parent_version: params.parentVersion,
       })
@@ -266,16 +266,16 @@ export async function saveDraft(params: {
       .values({
         project_id: params.projectId,
         base_version: params.baseVersion,
-        clips: clips as unknown as unknown[],
-        overlays: overlays as unknown as unknown[],
+        clips: jsonb(clips),
+        overlays: jsonb(overlays),
         revision,
         updated_at: new Date(),
       })
       .onConflict((oc) =>
         oc.column("project_id").doUpdateSet({
           base_version: params.baseVersion,
-          clips: clips as unknown as unknown[],
-          overlays: overlays as unknown as unknown[],
+          clips: jsonb(clips),
+          overlays: jsonb(overlays),
           revision,
           updated_at: new Date(),
         }),

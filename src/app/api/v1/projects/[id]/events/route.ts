@@ -51,7 +51,7 @@ export async function GET(request: Request, route: { params: Promise<{ id: strin
               latestTimeline(project.id),
             ]);
             const snapshot = {
-              jobs: jobs.map((j) => ({
+              jobs: jobs.items.map((j) => ({
                 id: j.id,
                 type: j.type,
                 status: j.status,

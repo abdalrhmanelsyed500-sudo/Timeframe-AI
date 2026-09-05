@@ -53,7 +53,10 @@ export function planRender(input: PlanInput): RenderPlan {
     .sort((a, b) => a.startMs - b.startMs);
   if (clips.length === 0) throw new AppError("RENDER_ERROR", "There are no clips to render in this range.");
 
-  const args: string[] = ["-y", "-hide_banner", "-nostdin", "-loglevel", "error", "-progress", "pipe:1", "-stats_period", "0.5"];
+  // -progress emits machine-readable key=value progress on stdout. (-stats_period
+  // is deliberately omitted: it does not exist in older FFmpeg builds and its
+  // absence only changes the reporting cadence, not correctness.)
+  const args: string[] = ["-y", "-hide_banner", "-nostdin", "-loglevel", "error", "-progress", "pipe:1"];
   const filters: string[] = [];
   const overlayW = Math.round(profile.width * SCALE_OVERSCAN);
   const overlayH = Math.round(profile.height * SCALE_OVERSCAN);

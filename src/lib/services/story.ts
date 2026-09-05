@@ -1,5 +1,5 @@
 import { iso } from "@/lib/core/dates";
-import { db, dbGuard } from "@/lib/db";
+import { db, dbGuard, jsonb } from "@/lib/db";
 import { newId } from "@/lib/core/ids";
 import { contentHash } from "@/lib/core/hash";
 import { AppError } from "@/lib/errors";
@@ -579,7 +579,7 @@ async function persistPlan(params: {
             lighting: shot.lighting,
             color: shot.color,
             atmosphere: shot.atmosphere,
-            entity_names: shot.entities,
+            entity_names: jsonb(shot.entities),
             transition: shot.transition,
             motion: "STATIC",
           }));

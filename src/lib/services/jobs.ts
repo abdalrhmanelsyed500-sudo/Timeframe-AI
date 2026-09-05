@@ -157,7 +157,16 @@ export async function listJobs(params: { userId: string; projectId?: string; lim
   if (params.projectId) q = q.where("project_id", "=", params.projectId);
   if (params.activeOnly) q = q.where("status", "in", ["QUEUED", "PROCESSING", "RETRYING"]);
   const rows = await dbGuard(() => q.orderBy("created_at", "desc").limit(limit).offset(offset).execute());
-  return rows.map((r) => toJob(r as unknown as Row));
+
+  let countQuery = db
+    .selectFrom("jobs")
+    .select((eb) => eb.fn.countAll<string>().as("count"))
+    .where("user_id", "=", params.userId);
+  if (params.projectId) countQuery = countQuery.where("project_id", "=", params.projectId);
+  if (params.activeOnly) countQuery = countQuery.where("status", "in", ["QUEUED", "PROCESSING", "RETRYING"]);
+  const total = Number((await dbGuard(() => countQuery.executeTakeFirst()))?.count ?? 0);
+
+  return { items: rows.map((r) => toJob(r as unknown as Row)), total, limit, offset };
 }
 
 export async function markProcessing(jobId: string): Promise<void> {

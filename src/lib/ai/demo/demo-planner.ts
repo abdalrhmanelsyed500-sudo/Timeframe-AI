@@ -281,7 +281,7 @@ export function planStory(input: PlannerInput): AiStoryPlan {
       const nouns = properNouns(sceneText);
       const seedBase = `${input.projectName}:${si}:${ci}`;
       const shotSpans = buildShots(sceneSegs, tone, seedBase);
-      const location = nouns.find((n) => PLACE_HINT.test(sceneText) ) ?? (kws[0] ? titleCase(kws[0]) : "");
+      const location = (PLACE_HINT.test(sceneText) ? nouns[0] : undefined) ?? (kws[0] ? titleCase(kws[0]) : "");
       const eraMatch = /\b(1[0-9]{3}|20[0-9]{2})s?\b/.exec(sceneText);
       const wpm =
         sceneText.split(/\s+/).length /

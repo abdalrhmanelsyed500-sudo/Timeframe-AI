@@ -1,3 +1,5 @@
+import { AppError } from "@/lib/errors";
+
 export interface RenderProfile {
   key: string;
   name: string;
@@ -57,8 +59,17 @@ export const RENDER_PROFILES: Record<string, RenderProfile> = {
   },
 };
 
+export const DEFAULT_PROFILE_KEY = "FULL_HD";
+
+/** Never falls back silently — an unknown profile is a caller bug, not a default. */
 export function getProfile(key: string): RenderProfile {
-  return RENDER_PROFILES[key] ?? RENDER_PROFILES.FULL_HD;
+  const profile = RENDER_PROFILES[key];
+  if (!profile) {
+    throw new AppError("VALIDATION_ERROR", `Unknown render profile "${key}".`, {
+      context: { allowed: Object.keys(RENDER_PROFILES) },
+    });
+  }
+  return profile;
 }
 
 export const PROFILE_LIST = Object.values(RENDER_PROFILES);

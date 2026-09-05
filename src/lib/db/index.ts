@@ -8,9 +8,7 @@ import { AppError } from "@/lib/errors";
 // We keep that and convert explicitly at the edges.
 
 declare global {
-  // eslint-disable-next-line no-var
   var __tf_pool: Pool | undefined;
-  // eslint-disable-next-line no-var
   var __tf_db: Kysely<Database> | undefined;
 }
 
@@ -83,3 +81,12 @@ export async function pingDb(): Promise<boolean> {
 
 export { sql };
 export type { Database };
+
+/**
+ * node-postgres serialises a JS array as a Postgres ARRAY literal, not JSON, so
+ * assigning one straight to a JSONB column fails with 22P02. Every JSONB value
+ * that may be an array must go through this helper.
+ */
+export function jsonb<T>(value: T): string {
+  return JSON.stringify(value ?? null);
+}

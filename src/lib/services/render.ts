@@ -312,15 +312,22 @@ export async function executeRender(params: { renderId: string; project: Project
         progress: Math.max(0.02, chunkBase * 0.9),
       });
 
+      // Progress is throttled so a long render does not hammer the database.
       let lastWrite = 0;
       await runFfmpeg(plan.args, {
         timeoutMs: 6 * 60 * 60_000,
-        onStderr: () => {},
+        onProgress: ({ outTimeMs }) => {
+          const now = Date.now();
+          if (now - lastWrite < 1000) return;
+          lastWrite = now;
+          const withinChunk = Math.min(1, outTimeMs / Math.max(1, chunkDurationMs));
+          void updateRender(renderId, {
+            progress: Math.min(0.9, (chunkBase + chunkSpan * withinChunk) * 0.9),
+          }).catch(() => {});
+        },
       }).catch((e) => {
         throw toAppError(e);
       });
-
-      void lastWrite;
       // Every chunk is validated before it is allowed into the concatenation.
       const chunkQc = await validateRenderOutput(outPath, {
         profile,

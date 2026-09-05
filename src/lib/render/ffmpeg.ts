@@ -14,13 +14,15 @@ function resolveBinary(kind: "ffmpeg" | "ffprobe"): string | null {
   const explicit = kind === "ffmpeg" ? env.FFMPEG_PATH : env.FFPROBE_PATH;
   if (explicit && fs.existsSync(explicit)) return explicit;
   try {
-     
+    // Synchronous resolution is required: callers are sync (findFfmpeg) and the
+    // installer packages expose only a CommonJS `{ path }` export.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require(kind === "ffmpeg" ? "@ffmpeg-installer/ffmpeg" : "@ffprobe-installer/ffprobe") as {
-      path: string;
+      path?: string;
     };
     if (mod?.path && fs.existsSync(mod.path)) return mod.path;
   } catch {
-    /* installer package unavailable */
+    /* installer package unavailable — fall through to well-known paths */
   }
   for (const p of [`/usr/bin/${kind}`, `/usr/local/bin/${kind}`, `/opt/homebrew/bin/${kind}`]) {
     if (fs.existsSync(p)) return p;
@@ -56,6 +58,8 @@ export function requireFfprobe(): string {
 export interface RunOptions {
   timeoutMs?: number;
   onStderr?: (chunk: string) => void;
+  /** Receives parsed `-progress pipe:1` updates (microseconds of output written). */
+  onProgress?: (update: { outTimeMs: number; frame: number | null; speed: string | null }) => void;
   signal?: AbortSignal;
 }
 
@@ -91,9 +95,30 @@ export function runProcess(bin: string, args: string[], opts: RunOptions = {}): 
     };
     opts.signal?.addEventListener("abort", onAbort, { once: true });
 
+    let progressBuffer = "";
     child.stdout.on("data", (d: Buffer) => {
-      stdout += d.toString();
+      const text = d.toString();
+      stdout += text;
       if (stdout.length > 4_000_000) stdout = stdout.slice(-2_000_000);
+      if (!opts.onProgress) return;
+      // `-progress pipe:1` emits key=value lines terminated by `progress=...`.
+      progressBuffer += text;
+      const blocks = progressBuffer.split(/^progress=\w+$/m);
+      progressBuffer = blocks.pop() ?? "";
+      for (const block of blocks) {
+        const kv = new Map<string, string>();
+        for (const line of block.split("\n")) {
+          const eq = line.indexOf("=");
+          if (eq > 0) kv.set(line.slice(0, eq).trim(), line.slice(eq + 1).trim());
+        }
+        const outTimeUs = Number(kv.get("out_time_us") ?? kv.get("out_time_ms") ?? NaN);
+        if (!Number.isFinite(outTimeUs)) continue;
+        opts.onProgress({
+          outTimeMs: Math.max(0, Math.round(outTimeUs / 1000)),
+          frame: Number.isFinite(Number(kv.get("frame"))) ? Number(kv.get("frame")) : null,
+          speed: kv.get("speed") ?? null,
+        });
+      }
     });
     child.stderr.on("data", (d: Buffer) => {
       const text = d.toString();

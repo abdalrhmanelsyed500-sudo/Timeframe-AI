@@ -71,7 +71,6 @@ function sleep(ms: number) {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __tf_worker: WorkerHandle | undefined;
 }
 
